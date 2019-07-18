@@ -17,6 +17,7 @@ lazy_static! {
 struct RegistryPointer(*const mio::Registry);
 
 unsafe impl Send for RegistryPointer {}
+unsafe impl Sync for RegistryPointer {}
 
 enum PollInternal {
     Poll(RwLock<mio::Poll>),
