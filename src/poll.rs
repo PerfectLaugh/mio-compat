@@ -8,12 +8,6 @@ use std::time::Duration;
 use crate::evented::EventedSource;
 use crate::{Event, Events, PollOpt, Ready, Token};
 
-use lazy_static::lazy_static;
-
-lazy_static! {
-    static ref POLL_MAP: Mutex<HashMap<usize, usize>> = Mutex::new(HashMap::new());
-}
-
 struct RegistryPointer(*const mio::Registry);
 
 unsafe impl Send for RegistryPointer {}
