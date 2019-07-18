@@ -133,13 +133,12 @@ impl crate::Evented for UdpSocket {
         interest: crate::Ready,
         _opts: crate::PollOpt,
     ) -> io::Result<()> {
-        poll.use_registry(|r| {
-            self.0.register(
-                r,
-                mio::Token(token.0),
-                convert_ready_to_interests(interest).unwrap(),
-            )
-        })
+        let registry = unsafe { poll.registry() };
+        self.0.register(
+            registry,
+            mio::Token(token.0),
+            convert_ready_to_interests(interest).unwrap(),
+        )
     }
 
     fn reregister(
@@ -149,17 +148,17 @@ impl crate::Evented for UdpSocket {
         interest: crate::Ready,
         _opts: crate::PollOpt,
     ) -> io::Result<()> {
-        poll.use_registry(|r| {
-            self.0.reregister(
-                r,
-                mio::Token(token.0),
-                convert_ready_to_interests(interest).unwrap(),
-            )
-        })
+        let registry = unsafe { poll.registry() };
+        self.0.reregister(
+            registry,
+            mio::Token(token.0),
+            convert_ready_to_interests(interest).unwrap(),
+        )
     }
 
     fn deregister(&self, poll: &crate::Poll) -> io::Result<()> {
-        poll.use_registry(|r| self.0.deregister(r))
+        let registry = unsafe { poll.registry() };
+        self.0.deregister(registry)
     }
 }
 

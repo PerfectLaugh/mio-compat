@@ -2,7 +2,6 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt;
 use std::io;
-use std::ops::Fn;
 use std::sync::Mutex;
 use std::time::Duration;
 
@@ -31,15 +30,15 @@ impl Poll {
         Poll(PollInternal::Registry(registry))
     }
 
-    pub fn register<S: ?Sized>(
+    pub fn register<E: ?Sized>(
         &self,
-        handle: &S,
+        handle: &E,
         token: Token,
         interest: Ready,
         opts: PollOpt,
     ) -> io::Result<()>
     where
-        S: crate::Evented,
+        E: crate::Evented,
     {
         validate_args(opts)?;
         let interests = match convert_ready_to_interests(interest) {
@@ -139,13 +138,12 @@ impl Poll {
         Ok(size)
     }
 
-    pub(crate) fn use_registry<F: Fn(&mio::Registry) -> io::Result<()>>(
-        &self,
-        func: F,
-    ) -> io::Result<()> {
+    pub(crate) unsafe fn registry(&self) -> &mio::Registry {
         match &self.0 {
-            PollInternal::Poll(internal) => func(internal.borrow().registry()),
-            PollInternal::Registry(registry) => unsafe { func(&**registry) },
+            PollInternal::Poll(internal) => {
+                &*(internal.borrow().registry() as *const mio::Registry)
+            }
+            PollInternal::Registry(registry) => &**registry,
         }
     }
 }
