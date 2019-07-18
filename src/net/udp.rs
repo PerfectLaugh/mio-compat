@@ -1,9 +1,9 @@
 use std::fmt;
 use std::io;
-use std::net::{self, SocketAddr, Ipv4Addr, Ipv6Addr};
+use std::net::{self, Ipv4Addr, Ipv6Addr, SocketAddr};
 
-use mio::event::Source;
 use crate::poll::convert_ready_to_interests;
+use mio::event::Source;
 
 pub struct UdpSocket(mio::net::UdpSocket);
 
@@ -86,27 +86,19 @@ impl UdpSocket {
         self.0.ttl()
     }
 
-    pub fn join_multicast_v4(&self,
-                             multiaddr: &Ipv4Addr,
-                             interface: &Ipv4Addr) -> io::Result<()> {
+    pub fn join_multicast_v4(&self, multiaddr: &Ipv4Addr, interface: &Ipv4Addr) -> io::Result<()> {
         self.0.join_multicast_v4(*multiaddr, *interface)
     }
 
-    pub fn join_multicast_v6(&self,
-                             multiaddr: &Ipv6Addr,
-                             interface: u32) -> io::Result<()> {
+    pub fn join_multicast_v6(&self, multiaddr: &Ipv6Addr, interface: u32) -> io::Result<()> {
         self.0.join_multicast_v6(multiaddr, interface)
     }
 
-    pub fn leave_multicast_v4(&self,
-                              multiaddr: &Ipv4Addr,
-                              interface: &Ipv4Addr) -> io::Result<()> {
+    pub fn leave_multicast_v4(&self, multiaddr: &Ipv4Addr, interface: &Ipv4Addr) -> io::Result<()> {
         self.0.leave_multicast_v4(*multiaddr, *interface)
     }
 
-    pub fn leave_multicast_v6(&self,
-                              multiaddr: &Ipv6Addr,
-                              interface: u32) -> io::Result<()> {
+    pub fn leave_multicast_v6(&self, multiaddr: &Ipv6Addr, interface: u32) -> io::Result<()> {
         self.0.leave_multicast_v6(multiaddr, interface)
     }
 
@@ -134,12 +126,36 @@ impl UdpSocket {
 }
 
 impl crate::Evented for UdpSocket {
-    fn register(&self, poll: &crate::Poll, token: crate::Token, interest: crate::Ready, _opts: crate::PollOpt) -> io::Result<()> {
-        poll.use_registry(|r| self.0.register(r, mio::Token(token.0), convert_ready_to_interests(interest).unwrap()))
+    fn register(
+        &self,
+        poll: &crate::Poll,
+        token: crate::Token,
+        interest: crate::Ready,
+        _opts: crate::PollOpt,
+    ) -> io::Result<()> {
+        poll.use_registry(|r| {
+            self.0.register(
+                r,
+                mio::Token(token.0),
+                convert_ready_to_interests(interest).unwrap(),
+            )
+        })
     }
 
-    fn reregister(&self, poll: &crate::Poll, token: crate::Token, interest: crate::Ready, _opts: crate::PollOpt) -> io::Result<()> {
-        poll.use_registry(|r| self.0.reregister(r, mio::Token(token.0), convert_ready_to_interests(interest).unwrap()))
+    fn reregister(
+        &self,
+        poll: &crate::Poll,
+        token: crate::Token,
+        interest: crate::Ready,
+        _opts: crate::PollOpt,
+    ) -> io::Result<()> {
+        poll.use_registry(|r| {
+            self.0.reregister(
+                r,
+                mio::Token(token.0),
+                convert_ready_to_interests(interest).unwrap(),
+            )
+        })
     }
 
     fn deregister(&self, poll: &crate::Poll) -> io::Result<()> {

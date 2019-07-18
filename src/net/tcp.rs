@@ -1,13 +1,13 @@
 use std::fmt;
 use std::io;
 use std::io::{Read, Write};
-use std::net::{self, SocketAddr, Shutdown};
+use std::net::{self, Shutdown, SocketAddr};
 use std::time::Duration;
 
 use iovec::IoVec;
 
-use mio::event::Source;
 use crate::poll::convert_ready_to_interests;
+use mio::event::Source;
 
 pub struct TcpStream(mio::net::TcpStream);
 
@@ -16,9 +16,10 @@ impl TcpStream {
         Ok(TcpStream(mio::net::TcpStream::connect(*addr)?))
     }
 
-    pub fn connect_stream(stream: net::TcpStream,
-                          addr: &SocketAddr) -> io::Result<TcpStream> {
-        Ok(TcpStream(mio::net::TcpStream::connect_stream(stream, *addr)?))
+    pub fn connect_stream(stream: net::TcpStream, addr: &SocketAddr) -> io::Result<TcpStream> {
+        Ok(TcpStream(mio::net::TcpStream::connect_stream(
+            stream, *addr,
+        )?))
     }
 
     pub fn from_stream(stream: net::TcpStream) -> io::Result<TcpStream> {
@@ -107,20 +108,15 @@ impl TcpStream {
     #[cfg(feature = "with-deprecated")]
     #[doc(hidden)]
     pub fn set_keepalive_ms(&self, keepalive: Option<u32>) -> io::Result<()> {
-        self.set_keepalive(keepalive.map(|v| {
-            Duration::from_millis(u64::from(v))
-        }))
+        self.set_keepalive(keepalive.map(|v| Duration::from_millis(u64::from(v))))
     }
 
     #[deprecated(since = "0.6.9", note = "use keepalive")]
     #[cfg(feature = "with-deprecated")]
     #[doc(hidden)]
     pub fn keepalive_ms(&self) -> io::Result<Option<u32>> {
-        self.keepalive().map(|v| {
-            v.map(|v| {
-                crate::convert::millis(v) as u32
-            })
-        })
+        self.keepalive()
+            .map(|v| v.map(|v| crate::convert::millis(v) as u32))
     }
 
     /// Get the value of the `SO_ERROR` option on this socket.
@@ -184,12 +180,36 @@ impl<'a> Write for &'a TcpStream {
 }
 
 impl crate::Evented for TcpStream {
-    fn register(&self, poll: &crate::Poll, token: crate::Token, interest: crate::Ready, _opts: crate::PollOpt) -> io::Result<()> {
-        poll.use_registry(|r| self.0.register(r, mio::Token(token.0), convert_ready_to_interests(interest).unwrap()))
+    fn register(
+        &self,
+        poll: &crate::Poll,
+        token: crate::Token,
+        interest: crate::Ready,
+        _opts: crate::PollOpt,
+    ) -> io::Result<()> {
+        poll.use_registry(|r| {
+            self.0.register(
+                r,
+                mio::Token(token.0),
+                convert_ready_to_interests(interest).unwrap(),
+            )
+        })
     }
 
-    fn reregister(&self, poll: &crate::Poll, token: crate::Token, interest: crate::Ready, _opts: crate::PollOpt) -> io::Result<()> {
-        poll.use_registry(|r| self.0.reregister(r, mio::Token(token.0), convert_ready_to_interests(interest).unwrap()))
+    fn reregister(
+        &self,
+        poll: &crate::Poll,
+        token: crate::Token,
+        interest: crate::Ready,
+        _opts: crate::PollOpt,
+    ) -> io::Result<()> {
+        poll.use_registry(|r| {
+            self.0.reregister(
+                r,
+                mio::Token(token.0),
+                convert_ready_to_interests(interest).unwrap(),
+            )
+        })
     }
 
     fn deregister(&self, poll: &crate::Poll) -> io::Result<()> {
@@ -213,8 +233,7 @@ impl TcpListener {
     #[deprecated(since = "0.6.13", note = "use from_std instead")]
     #[cfg(feature = "with-deprecated")]
     #[doc(hidden)]
-    pub fn from_listener(listener: net::TcpListener, _: &SocketAddr)
-                         -> io::Result<TcpListener> {
+    pub fn from_listener(listener: net::TcpListener, _: &SocketAddr) -> io::Result<TcpListener> {
         TcpListener::from_std(listener)
     }
 
@@ -261,12 +280,36 @@ impl TcpListener {
 }
 
 impl crate::Evented for TcpListener {
-    fn register(&self, poll: &crate::Poll, token: crate::Token, interest: crate::Ready, _opts: crate::PollOpt) -> io::Result<()> {
-        poll.use_registry(|r| self.0.register(r, mio::Token(token.0), convert_ready_to_interests(interest).unwrap()))
+    fn register(
+        &self,
+        poll: &crate::Poll,
+        token: crate::Token,
+        interest: crate::Ready,
+        _opts: crate::PollOpt,
+    ) -> io::Result<()> {
+        poll.use_registry(|r| {
+            self.0.register(
+                r,
+                mio::Token(token.0),
+                convert_ready_to_interests(interest).unwrap(),
+            )
+        })
     }
 
-    fn reregister(&self, poll: &crate::Poll, token: crate::Token, interest: crate::Ready, _opts: crate::PollOpt) -> io::Result<()> {
-        poll.use_registry(|r| self.0.reregister(r, mio::Token(token.0), convert_ready_to_interests(interest).unwrap()))
+    fn reregister(
+        &self,
+        poll: &crate::Poll,
+        token: crate::Token,
+        interest: crate::Ready,
+        _opts: crate::PollOpt,
+    ) -> io::Result<()> {
+        poll.use_registry(|r| {
+            self.0.reregister(
+                r,
+                mio::Token(token.0),
+                convert_ready_to_interests(interest).unwrap(),
+            )
+        })
     }
 
     fn deregister(&self, poll: &crate::Poll) -> io::Result<()> {
@@ -281,7 +324,7 @@ impl fmt::Debug for TcpListener {
 }
 
 #[cfg(all(unix, not(target_os = "fuchsia")))]
-use std::os::unix::io::{IntoRawFd, AsRawFd, FromRawFd, RawFd};
+use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 
 #[cfg(all(unix, not(target_os = "fuchsia")))]
 impl IntoRawFd for TcpStream {

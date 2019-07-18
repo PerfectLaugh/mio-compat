@@ -1,13 +1,13 @@
+use std::cell::RefCell;
+use std::collections::HashMap;
 use std::fmt;
 use std::io;
-use std::time::Duration;
-use std::cell::RefCell;
-use std::sync::Mutex;
-use std::collections::HashMap;
 use std::ops::Fn;
+use std::sync::Mutex;
+use std::time::Duration;
 
-use crate::{Event, Ready, Token, PollOpt, Events};
 use crate::evented::EventedSource;
+use crate::{Event, Events, PollOpt, Ready, Token};
 
 use lazy_static::lazy_static;
 
@@ -31,8 +31,15 @@ impl<'a> Poll<'a> {
         Poll(PollInternal::Registry(registry))
     }
 
-    pub fn register<S: ?Sized>(&self, handle: &S, token: Token, interest: Ready, opts: PollOpt) -> io::Result<()>
-        where S: crate::Evented
+    pub fn register<S: ?Sized>(
+        &self,
+        handle: &S,
+        token: Token,
+        interest: Ready,
+        opts: PollOpt,
+    ) -> io::Result<()>
+    where
+        S: crate::Evented,
     {
         validate_args(opts)?;
         let interests = match convert_ready_to_interests(interest) {
@@ -40,13 +47,26 @@ impl<'a> Poll<'a> {
             None => return Err(io::Error::from(io::ErrorKind::InvalidInput)),
         };
         match &self.0 {
-            PollInternal::Poll(internal) => internal.borrow().registry().register(&EventedSource::new(handle), mio::Token(token.0), interests),
-            PollInternal::Registry(registry) => registry.register(&EventedSource::new(handle), mio::Token(token.0), interests),
+            PollInternal::Poll(internal) => internal.borrow().registry().register(
+                &EventedSource::new(handle),
+                mio::Token(token.0),
+                interests,
+            ),
+            PollInternal::Registry(registry) => {
+                registry.register(&EventedSource::new(handle), mio::Token(token.0), interests)
+            }
         }
     }
 
-    pub fn reregister<E: ?Sized>(&self, handle: &E, token: Token, interest: Ready, opts: PollOpt) -> io::Result<()>
-        where E: crate::Evented
+    pub fn reregister<E: ?Sized>(
+        &self,
+        handle: &E,
+        token: Token,
+        interest: Ready,
+        opts: PollOpt,
+    ) -> io::Result<()>
+    where
+        E: crate::Evented,
     {
         validate_args(opts)?;
         let interests = match convert_ready_to_interests(interest) {
@@ -54,21 +74,30 @@ impl<'a> Poll<'a> {
             None => return Err(io::Error::from(io::ErrorKind::InvalidInput)),
         };
         match &self.0 {
-            PollInternal::Poll(internal) => internal.borrow().registry().reregister(&EventedSource::new(handle), mio::Token(token.0), interests),
-            PollInternal::Registry(registry) => registry.reregister(&EventedSource::new(handle), mio::Token(token.0), interests),
+            PollInternal::Poll(internal) => internal.borrow().registry().reregister(
+                &EventedSource::new(handle),
+                mio::Token(token.0),
+                interests,
+            ),
+            PollInternal::Registry(registry) => {
+                registry.reregister(&EventedSource::new(handle), mio::Token(token.0), interests)
+            }
         }
     }
     pub fn deregister<E: ?Sized>(&self, handle: &E) -> io::Result<()>
-        where E: crate::Evented
+    where
+        E: crate::Evented,
     {
         match &self.0 {
-            PollInternal::Poll(internal) => internal.borrow().registry().deregister(&EventedSource::new(handle)),
+            PollInternal::Poll(internal) => internal
+                .borrow()
+                .registry()
+                .deregister(&EventedSource::new(handle)),
             PollInternal::Registry(registry) => registry.deregister(&EventedSource::new(handle)),
         }
     }
 
-    pub fn poll(&self, events: &mut Events, timeout: Option<Duration>) -> io::Result<usize>
-    {
+    pub fn poll(&self, events: &mut Events, timeout: Option<Duration>) -> io::Result<usize> {
         events.clear();
         let inner = match &self.0 {
             PollInternal::Poll(poll) => poll,
@@ -77,26 +106,41 @@ impl<'a> Poll<'a> {
         let mut new_events = mio::Events::with_capacity(events.capacity());
         let size = inner.borrow_mut().poll(&mut new_events, timeout)?;
         for event in &new_events {
-            events.push(Event::new(convert_event_to_ready(event), Token(event.token().0)));
+            events.push(Event::new(
+                convert_event_to_ready(event),
+                Token(event.token().0),
+            ));
         }
         Ok(size)
     }
 
-    pub fn poll_interruptible(&self, events: &mut Events, timeout: Option<Duration>) -> io::Result<usize> {
+    pub fn poll_interruptible(
+        &self,
+        events: &mut Events,
+        timeout: Option<Duration>,
+    ) -> io::Result<usize> {
         events.clear();
         let inner = match &self.0 {
             PollInternal::Poll(poll) => poll,
             _ => return Err(io::Error::from(io::ErrorKind::InvalidData)),
         };
         let mut new_events = mio::Events::with_capacity(events.capacity());
-        let size = inner.borrow_mut().poll_interruptible(&mut new_events, timeout)?;
+        let size = inner
+            .borrow_mut()
+            .poll_interruptible(&mut new_events, timeout)?;
         for event in &new_events {
-            events.push(Event::new(convert_event_to_ready(event), Token(event.token().0)));
+            events.push(Event::new(
+                convert_event_to_ready(event),
+                Token(event.token().0),
+            ));
         }
         Ok(size)
     }
 
-    pub(crate) fn use_registry<F: Fn(&mio::Registry) -> io::Result<()>>(&self, func: F) -> io::Result<()> {
+    pub(crate) fn use_registry<F: Fn(&mio::Registry) -> io::Result<()>>(
+        &self,
+        func: F,
+    ) -> io::Result<()> {
         match &self.0 {
             PollInternal::Poll(internal) => func(internal.borrow().registry()),
             PollInternal::Registry(registry) => func(registry),
@@ -135,7 +179,7 @@ pub(crate) fn convert_interests_to_ready(interests: mio::Interests) -> Ready {
     if interests.is_writable() {
         ready |= Ready::writable();
     }
-    
+
     ready
 }
 
@@ -148,7 +192,7 @@ pub(crate) fn convert_event_to_ready(event: &mio::event::Event) -> Ready {
     if event.is_writable() {
         ready |= Ready::writable();
     }
-    
+
     ready
 }
 

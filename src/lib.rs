@@ -1,11 +1,11 @@
-pub use mio_old::{Event, Token, Ready, PollOpt};
+pub use mio_old::{Event, PollOpt, Ready, Token};
 
+mod evented;
 pub mod net;
 mod poll;
-mod evented;
 
-pub use poll::Poll;
 pub use evented::Evented;
+pub use poll::Poll;
 
 pub type Events = Vec<Event>;
 
@@ -24,6 +24,9 @@ mod convert {
     pub fn millis(duration: Duration) -> u64 {
         // Round up.
         let millis = (duration.subsec_nanos() + NANOS_PER_MILLI - 1) / NANOS_PER_MILLI;
-        duration.as_secs().saturating_mul(MILLIS_PER_SEC).saturating_add(u64::from(millis))
+        duration
+            .as_secs()
+            .saturating_mul(MILLIS_PER_SEC)
+            .saturating_add(u64::from(millis))
     }
 }
