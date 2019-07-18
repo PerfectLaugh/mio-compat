@@ -15,19 +15,19 @@ lazy_static! {
     static ref POLL_MAP: Mutex<HashMap<usize, usize>> = Mutex::new(HashMap::new());
 }
 
-enum PollInternal<'a> {
+enum PollInternal {
     Poll(RefCell<mio::Poll>),
-    Registry(&'a mio::Registry),
+    Registry(*const mio::Registry),
 }
 
-pub struct Poll<'a>(PollInternal<'a>);
+pub struct Poll(PollInternal);
 
-impl<'a> Poll<'a> {
-    pub fn new() -> io::Result<Poll<'a>> {
+impl Poll {
+    pub fn new() -> io::Result<Poll> {
         Ok(Poll(PollInternal::Poll(RefCell::new(mio::Poll::new()?))))
     }
 
-    pub(crate) fn from_registry(registry: &'a mio::Registry) -> Poll<'a> {
+    pub(crate) fn from_registry(registry: &mio::Registry) -> Poll {
         Poll(PollInternal::Registry(registry))
     }
 
@@ -52,9 +52,9 @@ impl<'a> Poll<'a> {
                 mio::Token(token.0),
                 interests,
             ),
-            PollInternal::Registry(registry) => {
-                registry.register(&EventedSource::new(handle), mio::Token(token.0), interests)
-            }
+            PollInternal::Registry(registry) => unsafe {
+                (**registry).register(&EventedSource::new(handle), mio::Token(token.0), interests)
+            },
         }
     }
 
@@ -79,9 +79,9 @@ impl<'a> Poll<'a> {
                 mio::Token(token.0),
                 interests,
             ),
-            PollInternal::Registry(registry) => {
-                registry.reregister(&EventedSource::new(handle), mio::Token(token.0), interests)
-            }
+            PollInternal::Registry(registry) => unsafe {
+                (**registry).reregister(&EventedSource::new(handle), mio::Token(token.0), interests)
+            },
         }
     }
     pub fn deregister<E: ?Sized>(&self, handle: &E) -> io::Result<()>
@@ -93,7 +93,9 @@ impl<'a> Poll<'a> {
                 .borrow()
                 .registry()
                 .deregister(&EventedSource::new(handle)),
-            PollInternal::Registry(registry) => registry.deregister(&EventedSource::new(handle)),
+            PollInternal::Registry(registry) => unsafe {
+                (**registry).deregister(&EventedSource::new(handle))
+            },
         }
     }
 
@@ -143,7 +145,7 @@ impl<'a> Poll<'a> {
     ) -> io::Result<()> {
         match &self.0 {
             PollInternal::Poll(internal) => func(internal.borrow().registry()),
-            PollInternal::Registry(registry) => func(registry),
+            PollInternal::Registry(registry) => unsafe { func(&**registry) },
         }
     }
 }
@@ -196,7 +198,7 @@ pub(crate) fn convert_event_to_ready(event: &mio::event::Event) -> Ready {
     ready
 }
 
-impl<'a> fmt::Debug for Poll<'a> {
+impl fmt::Debug for Poll {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.0 {
             PollInternal::Poll(_) => write!(fmt, "Poll::Poll"),
