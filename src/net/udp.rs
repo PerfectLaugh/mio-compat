@@ -5,6 +5,9 @@ use std::net::{self, Ipv4Addr, Ipv6Addr, SocketAddr};
 use crate::poll::convert_ready_to_interests;
 use mio::event::Source;
 
+#[cfg(all(unix, not(target_os = "fuchsia")))]
+use iovec::IoVec;
+
 pub struct UdpSocket(mio::net::UdpSocket);
 
 impl UdpSocket {
@@ -115,12 +118,12 @@ impl UdpSocket {
     }
 
     #[cfg(all(unix, not(target_os = "fuchsia")))]
-    pub fn recv_bufs(&self, bufs: &mut [&mut IoVec]) -> io::Result<usize> {
+    pub fn recv_bufs(&self, _bufs: &mut [&mut IoVec]) -> io::Result<usize> {
         unreachable!();
     }
 
     #[cfg(all(unix, not(target_os = "fuchsia")))]
-    pub fn send_bufs(&self, bufs: &[&IoVec]) -> io::Result<usize> {
+    pub fn send_bufs(&self, _bufs: &[&IoVec]) -> io::Result<usize> {
         unreachable!();
     }
 }
@@ -167,6 +170,10 @@ impl fmt::Debug for UdpSocket {
         fmt::Debug::fmt(&self.0, f)
     }
 }
+
+#[cfg(all(unix, not(target_os = "fuchsia")))]
+use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
+
 #[cfg(all(unix, not(target_os = "fuchsia")))]
 impl IntoRawFd for UdpSocket {
     fn into_raw_fd(self) -> RawFd {

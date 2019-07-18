@@ -5,7 +5,9 @@ use mio_compat::{Events, Poll, PollOpt, Ready, Token};
 use std::io::ErrorKind;
 use std::str;
 use std::time;
-//use iovec::IoVec;
+
+#[cfg(all(unix, not(target_os = "fuchsia")))]
+use iovec::IoVec;
 
 use log::{debug, info};
 

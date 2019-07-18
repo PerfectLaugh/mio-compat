@@ -79,16 +79,15 @@ macro_rules! assert_ready {
     }};
 }
 
-/*
+#[allow(unused_macros)]
 macro_rules! assert_not_ready {
     ($poll:expr, $token:expr, $ready:expr) => {{
         match $poll.wait_for($token, $ready) {
             Ok(_) => panic!("is ready; token = {:?}; interest = {:?}", $token, $ready),
             Err(_) => {}
         }
-    }}
+    }};
 }
-*/
 
 macro_rules! assert_hup_ready {
     ($poll:expr) => {

@@ -90,16 +90,10 @@ impl TcpStream {
         unreachable!();
     }
 
-    /// Sets the value for the `SO_LINGER` option on this socket.
     pub fn set_linger(&self, dur: Option<Duration>) -> io::Result<()> {
         self.0.set_linger(dur)
     }
 
-    /// Gets the value of the `SO_LINGER` option on this socket.
-    ///
-    /// For more information about this option, see [`set_linger`][link].
-    ///
-    /// [link]: #method.set_linger
     pub fn linger(&self) -> io::Result<Option<Duration>> {
         self.0.linger()
     }
@@ -119,21 +113,10 @@ impl TcpStream {
             .map(|v| v.map(|v| crate::convert::millis(v) as u32))
     }
 
-    /// Get the value of the `SO_ERROR` option on this socket.
-    ///
-    /// This will retrieve the stored error in the underlying socket, clearing
-    /// the field in the process. This can be useful for checking errors between
-    /// calls.
     pub fn take_error(&self) -> io::Result<Option<io::Error>> {
         self.0.take_error()
     }
 
-    /// Receives data on the socket from the remote address to which it is
-    /// connected, without removing that data from the queue. On success,
-    /// returns the number of bytes peeked.
-    ///
-    /// Successive calls return the same data. This is accomplished by passing
-    /// `MSG_PEEK` as a flag to the underlying recv system call.
     pub fn peek(&self, buf: &mut [u8]) -> io::Result<usize> {
         self.0.peek(buf)
     }

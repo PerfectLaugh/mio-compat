@@ -4,12 +4,15 @@ mod evented;
 mod events;
 mod poll;
 mod registration;
+
 pub mod event {
     pub use crate::evented::Evented;
     pub use crate::events::Events;
-    pub use mio_old::Event;
+    pub use crate::Event;
 }
 pub mod net;
+#[cfg(all(unix, not(target_os = "fuchsia")))]
+pub mod unix;
 
 pub use event::Events;
 pub use evented::Evented;
