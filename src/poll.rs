@@ -1,7 +1,5 @@
-use std::collections::HashMap;
 use std::fmt;
 use std::io;
-use std::sync::Mutex;
 use std::sync::RwLock;
 use std::time::Duration;
 
