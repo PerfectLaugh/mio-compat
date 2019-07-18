@@ -1,18 +1,20 @@
 pub use mio_old::{Event, PollOpt, Ready, Token};
 
 mod evented;
+mod events;
 mod poll;
 mod registration;
 pub mod event {
     pub use crate::evented::Evented;
+    pub use crate::events::Events;
+    pub use mio_old::Event;
 }
 pub mod net;
 
+pub use event::Events;
 pub use evented::Evented;
 pub use poll::Poll;
 pub use registration::{Registration, SetReadiness};
-
-pub type Events = Vec<Event>;
 
 #[cfg(feature = "with-deprecated")]
 mod convert {

@@ -117,7 +117,7 @@ impl Poll {
         let mut new_events = mio::Events::with_capacity(events.capacity());
         let size = inner.write().unwrap().poll(&mut new_events, timeout)?;
         for event in &new_events {
-            events.push(Event::new(
+            events.inner.push(Event::new(
                 convert_event_to_ready(event),
                 Token(event.token().0),
             ));
@@ -141,7 +141,7 @@ impl Poll {
             .unwrap()
             .poll_interruptible(&mut new_events, timeout)?;
         for event in &new_events {
-            events.push(Event::new(
+            events.inner.push(Event::new(
                 convert_event_to_ready(event),
                 Token(event.token().0),
             ));

@@ -3,6 +3,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::{Evented, Poll, PollOpt, Ready, Token};
 
+#[derive(Clone)]
 pub struct Registration(Arc<Mutex<RegistrationInner>>);
 
 impl Registration {
@@ -12,6 +13,7 @@ impl Registration {
     }
 }
 
+#[derive(Clone)]
 pub struct SetReadiness {
     inner: Arc<Mutex<RegistrationInner>>,
     cur_ready: Arc<Mutex<Ready>>,
@@ -65,8 +67,8 @@ impl Evented for Registration {
         interest: Ready,
         _opts: PollOpt,
     ) -> io::Result<()> {
-        let mut inner = self.0.lock().unwrap();
         let registry = unsafe { poll.registry() };
+        let mut inner = self.0.lock().unwrap();
         inner.waker = Some(mio::Waker::new(registry, mio::Token(token.0))?);
         inner.interest = interest;
         Ok(())
@@ -78,8 +80,8 @@ impl Evented for Registration {
         interest: Ready,
         _opts: PollOpt,
     ) -> io::Result<()> {
-        let mut inner = self.0.lock().unwrap();
         let registry = unsafe { poll.registry() };
+        let mut inner = self.0.lock().unwrap();
         inner.waker = Some(mio::Waker::new(registry, mio::Token(token.0))?);
         inner.interest = interest;
         Ok(())

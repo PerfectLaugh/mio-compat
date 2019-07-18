@@ -35,8 +35,8 @@ impl<'a, E: Evented + ?Sized> mio::event::Source for EventedSource<'a, E> {
         interests: mio::Interests,
     ) -> io::Result<()> {
         let poll = Poll::from_registry(registry);
-        poll.register(
-            self.0,
+        self.0.register(
+            &poll,
             Token(token.0),
             convert_interests_to_ready(interests),
             PollOpt::edge(),
@@ -49,8 +49,8 @@ impl<'a, E: Evented + ?Sized> mio::event::Source for EventedSource<'a, E> {
         interests: mio::Interests,
     ) -> io::Result<()> {
         let poll = Poll::from_registry(registry);
-        poll.reregister(
-            self.0,
+        self.0.reregister(
+            &poll,
             Token(token.0),
             convert_interests_to_ready(interests),
             PollOpt::edge(),
@@ -58,6 +58,6 @@ impl<'a, E: Evented + ?Sized> mio::event::Source for EventedSource<'a, E> {
     }
     fn deregister(&self, registry: &mio::Registry) -> io::Result<()> {
         let poll = Poll::from_registry(registry);
-        poll.deregister(self.0)
+        self.0.deregister(&poll)
     }
 }
