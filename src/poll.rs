@@ -1,8 +1,8 @@
-use std::sync::RwLock;
 use std::collections::HashMap;
 use std::fmt;
 use std::io;
 use std::sync::Mutex;
+use std::sync::RwLock;
 use std::time::Duration;
 
 use crate::evented::EventedSource;
@@ -83,7 +83,11 @@ impl Poll {
                 interests,
             ),
             PollInternal::Registry(registry) => unsafe {
-                (*registry.0).reregister(&EventedSource::new(handle), mio::Token(token.0), interests)
+                (*registry.0).reregister(
+                    &EventedSource::new(handle),
+                    mio::Token(token.0),
+                    interests,
+                )
             },
         }
     }
@@ -93,7 +97,8 @@ impl Poll {
     {
         match &self.0 {
             PollInternal::Poll(internal) => internal
-                .read().unwrap()
+                .read()
+                .unwrap()
                 .registry()
                 .deregister(&EventedSource::new(handle)),
             PollInternal::Registry(registry) => unsafe {
@@ -131,7 +136,8 @@ impl Poll {
         };
         let mut new_events = mio::Events::with_capacity(events.capacity());
         let size = inner
-            .write().unwrap()
+            .write()
+            .unwrap()
             .poll_interruptible(&mut new_events, timeout)?;
         for event in &new_events {
             events.push(Event::new(
