@@ -8,12 +8,11 @@ pub mod event {
 }
 pub mod net;
 
+pub use evented::Evented;
 pub use poll::Poll;
 pub use registration::{Registration, SetReadiness};
 
 pub type Events = Vec<Event>;
-
-use evented::Evented;
 
 #[cfg(feature = "with-deprecated")]
 mod convert {
