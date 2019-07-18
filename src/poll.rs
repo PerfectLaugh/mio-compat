@@ -1,4 +1,4 @@
-use std::cell::RefCell;
+use std::sync::RwLock;
 use std::collections::HashMap;
 use std::fmt;
 use std::io;
@@ -14,20 +14,24 @@ lazy_static! {
     static ref POLL_MAP: Mutex<HashMap<usize, usize>> = Mutex::new(HashMap::new());
 }
 
+struct RegistryPointer(*const mio::Registry);
+
+unsafe impl Send for RegistryPointer {}
+
 enum PollInternal {
-    Poll(RefCell<mio::Poll>),
-    Registry(*const mio::Registry),
+    Poll(RwLock<mio::Poll>),
+    Registry(RegistryPointer),
 }
 
 pub struct Poll(PollInternal);
 
 impl Poll {
     pub fn new() -> io::Result<Poll> {
-        Ok(Poll(PollInternal::Poll(RefCell::new(mio::Poll::new()?))))
+        Ok(Poll(PollInternal::Poll(RwLock::new(mio::Poll::new()?))))
     }
 
     pub(crate) fn from_registry(registry: &mio::Registry) -> Poll {
-        Poll(PollInternal::Registry(registry))
+        Poll(PollInternal::Registry(RegistryPointer(registry)))
     }
 
     pub fn register<E: ?Sized>(
@@ -46,13 +50,13 @@ impl Poll {
             None => return Err(io::Error::from(io::ErrorKind::InvalidInput)),
         };
         match &self.0 {
-            PollInternal::Poll(internal) => internal.borrow().registry().register(
+            PollInternal::Poll(internal) => internal.read().unwrap().registry().register(
                 &EventedSource::new(handle),
                 mio::Token(token.0),
                 interests,
             ),
             PollInternal::Registry(registry) => unsafe {
-                (**registry).register(&EventedSource::new(handle), mio::Token(token.0), interests)
+                (*registry.0).register(&EventedSource::new(handle), mio::Token(token.0), interests)
             },
         }
     }
@@ -73,13 +77,13 @@ impl Poll {
             None => return Err(io::Error::from(io::ErrorKind::InvalidInput)),
         };
         match &self.0 {
-            PollInternal::Poll(internal) => internal.borrow().registry().reregister(
+            PollInternal::Poll(internal) => internal.read().unwrap().registry().reregister(
                 &EventedSource::new(handle),
                 mio::Token(token.0),
                 interests,
             ),
             PollInternal::Registry(registry) => unsafe {
-                (**registry).reregister(&EventedSource::new(handle), mio::Token(token.0), interests)
+                (*registry.0).reregister(&EventedSource::new(handle), mio::Token(token.0), interests)
             },
         }
     }
@@ -89,11 +93,11 @@ impl Poll {
     {
         match &self.0 {
             PollInternal::Poll(internal) => internal
-                .borrow()
+                .read().unwrap()
                 .registry()
                 .deregister(&EventedSource::new(handle)),
             PollInternal::Registry(registry) => unsafe {
-                (**registry).deregister(&EventedSource::new(handle))
+                (*registry.0).deregister(&EventedSource::new(handle))
             },
         }
     }
@@ -105,7 +109,7 @@ impl Poll {
             _ => return Err(io::Error::from(io::ErrorKind::InvalidData)),
         };
         let mut new_events = mio::Events::with_capacity(events.capacity());
-        let size = inner.borrow_mut().poll(&mut new_events, timeout)?;
+        let size = inner.write().unwrap().poll(&mut new_events, timeout)?;
         for event in &new_events {
             events.push(Event::new(
                 convert_event_to_ready(event),
@@ -127,7 +131,7 @@ impl Poll {
         };
         let mut new_events = mio::Events::with_capacity(events.capacity());
         let size = inner
-            .borrow_mut()
+            .write().unwrap()
             .poll_interruptible(&mut new_events, timeout)?;
         for event in &new_events {
             events.push(Event::new(
@@ -141,9 +145,9 @@ impl Poll {
     pub(crate) unsafe fn registry(&self) -> &mio::Registry {
         match &self.0 {
             PollInternal::Poll(internal) => {
-                &*(internal.borrow().registry() as *const mio::Registry)
+                &*(internal.read().unwrap().registry() as *const mio::Registry)
             }
-            PollInternal::Registry(registry) => &**registry,
+            PollInternal::Registry(registry) => &*registry.0,
         }
     }
 }
