@@ -1,0 +1,13 @@
+[package]
+name = "mio-compat"
+version = "0.1.0"
+authors = ["dennis"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+iovec = "0.1.1"
+mio = { git = "https://github.com/PerfectLaugh/mio" }
+mio_old = { package = "mio", version = "0.6" }
+lazy_static = "1.3.0"
