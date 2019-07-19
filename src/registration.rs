@@ -1,61 +1,69 @@
 use std::io;
-use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, RwLock};
 
 use crate::{Evented, Poll, PollOpt, Ready, Token};
 
 #[derive(Clone)]
-pub struct Registration(Arc<Mutex<RegistrationInner>>);
+pub struct Registration(Arc<RegistrationInner>);
 
 impl Registration {
     pub fn new2() -> (Registration, SetReadiness) {
-        let inner = Arc::new(Mutex::new(RegistrationInner::new()));
+        let inner = Arc::new(RegistrationInner::new());
         (Registration(inner.clone()), SetReadiness::new(inner))
     }
 }
 
 #[derive(Clone)]
 pub struct SetReadiness {
-    inner: Arc<Mutex<RegistrationInner>>,
-    cur_ready: Arc<Mutex<Ready>>,
+    inner: Arc<RegistrationInner>,
+    cur_ready: Arc<AtomicUsize>,
 }
 
 impl SetReadiness {
-    fn new(inner: Arc<Mutex<RegistrationInner>>) -> SetReadiness {
+    fn new(inner: Arc<RegistrationInner>) -> SetReadiness {
         SetReadiness {
             inner,
-            cur_ready: Arc::new(Mutex::new(Ready::empty())),
+            cur_ready: Arc::new(AtomicUsize::new(Ready::empty().as_usize())),
         }
     }
     pub fn readiness(&self) -> Ready {
-        *self.cur_ready.lock().unwrap()
+        Ready::from_usize(self.cur_ready.load(Ordering::Acquire))
     }
     pub fn set_readiness(&self, ready: Ready) -> io::Result<()> {
-        *self.cur_ready.lock().unwrap() = ready;
-        self.inner.lock().unwrap().send_ready(ready)
+        if !ready.is_readable() {
+            return Err(io::Error::from(io::ErrorKind::InvalidInput));
+        }
+        self.cur_ready.store(ready.as_usize(), Ordering::Release);
+        self.inner.send_ready(ready)
     }
 }
 
 pub struct RegistrationInner {
-    waker: Option<mio::Waker>,
-    interest: Ready,
+    waker: RwLock<Option<mio::Waker>>,
 }
 
 impl RegistrationInner {
     fn new() -> RegistrationInner {
         RegistrationInner {
-            waker: None,
-            interest: Ready::empty(),
+            waker: RwLock::new(None),
         }
     }
 
     fn send_ready(&self, ready: Ready) -> io::Result<()> {
-        if self.waker.is_none() {
+        let waker = self.waker.read().unwrap();
+        if waker.is_none() {
             return Ok(());
         }
-        if !(self.interest & ready).is_empty() {
-            self.waker.as_ref().unwrap().wake()?;
+        if ready.is_readable() {
+            waker.as_ref().unwrap().wake()?;
         }
         Ok(())
+    }
+
+    fn set_waker(&self, waker: Option<mio::Waker>) {
+        let mut waker_store = self.waker.write().unwrap();
+        *waker_store = waker;
     }
 }
 
@@ -67,10 +75,12 @@ impl Evented for Registration {
         interest: Ready,
         _opts: PollOpt,
     ) -> io::Result<()> {
+        if !interest.is_readable() {
+            return Err(io::Error::from(io::ErrorKind::InvalidInput));
+        }
         let registry = unsafe { poll.registry() };
-        let mut inner = self.0.lock().unwrap();
-        inner.waker = Some(mio::Waker::new(registry, mio::Token(token.0))?);
-        inner.interest = interest;
+        self.0
+            .set_waker(Some(mio::Waker::new(registry, mio::Token(token.0))?));
         Ok(())
     }
     fn reregister(
@@ -80,16 +90,16 @@ impl Evented for Registration {
         interest: Ready,
         _opts: PollOpt,
     ) -> io::Result<()> {
+        if !interest.is_readable() {
+            return Err(io::Error::from(io::ErrorKind::InvalidInput));
+        }
         let registry = unsafe { poll.registry() };
-        let mut inner = self.0.lock().unwrap();
-        inner.waker = Some(mio::Waker::new(registry, mio::Token(token.0))?);
-        inner.interest = interest;
+        self.0
+            .set_waker(Some(mio::Waker::new(registry, mio::Token(token.0))?));
         Ok(())
     }
     fn deregister(&self, _poll: &Poll) -> io::Result<()> {
-        let mut inner = self.0.lock().unwrap();
-        inner.waker = None;
-        inner.interest = Ready::empty();
+        self.0.set_waker(None);
         Ok(())
     }
 }
