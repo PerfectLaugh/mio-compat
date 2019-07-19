@@ -1,9 +1,9 @@
 use std::fmt;
 use std::io;
+use std::io::{IoSlice, IoSliceMut};
 use std::io::{Read, Write};
 use std::net::{self, Shutdown, SocketAddr};
 use std::time::Duration;
-use std::io::{IoSlice, IoSliceMut};
 
 use iovec::IoVec;
 
@@ -124,13 +124,21 @@ impl TcpStream {
 
     pub fn read_bufs(&mut self, bufs: &mut [&mut IoVec]) -> io::Result<usize> {
         let mut ioslices = Vec::with_capacity(bufs.len());
-        bufs.iter_mut().for_each(|buf| ioslices.push(IoSliceMut::new( unsafe { std::slice::from_raw_parts_mut(buf.as_mut_ptr(), buf.len()) } )));
+        bufs.iter_mut().for_each(|buf| {
+            ioslices.push(IoSliceMut::new(unsafe {
+                std::slice::from_raw_parts_mut(buf.as_mut_ptr(), buf.len())
+            }))
+        });
         self.0.read_vectored(&mut ioslices)
     }
 
     pub fn write_bufs(&mut self, bufs: &[&IoVec]) -> io::Result<usize> {
         let mut ioslices = Vec::with_capacity(bufs.len());
-        bufs.iter().for_each(|buf| ioslices.push(IoSlice::new( unsafe { std::slice::from_raw_parts(buf.as_ptr(), buf.len()) } )));
+        bufs.iter().for_each(|buf| {
+            ioslices.push(IoSlice::new(unsafe {
+                std::slice::from_raw_parts(buf.as_ptr(), buf.len())
+            }))
+        });
         self.0.write_vectored(&ioslices)
     }
 }

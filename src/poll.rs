@@ -6,25 +6,17 @@ use std::time::Duration;
 use crate::evented::EventedSource;
 use crate::{Event, Events, PollOpt, Ready, Token};
 
-struct RegistryPointer(*const mio::Registry);
-
-unsafe impl Send for RegistryPointer {}
-unsafe impl Sync for RegistryPointer {}
-
-enum PollInternal {
-    Poll(RwLock<mio::Poll>),
-    Registry(RegistryPointer),
+struct PollInternal {
+    poll: RwLock<mio::Poll>,
 }
 
 pub struct Poll(PollInternal);
 
 impl Poll {
     pub fn new() -> io::Result<Poll> {
-        Ok(Poll(PollInternal::Poll(RwLock::new(mio::Poll::new()?))))
-    }
-
-    pub(crate) fn from_registry(registry: &mio::Registry) -> Poll {
-        Poll(PollInternal::Registry(RegistryPointer(registry)))
+        Ok(Poll(PollInternal {
+            poll: RwLock::new(mio::Poll::new()?),
+        }))
     }
 
     pub fn register<E: ?Sized>(
@@ -40,18 +32,13 @@ impl Poll {
         validate_args(opts)?;
         let interests = match convert_ready_to_interests(interest) {
             Some(interests) => interests,
-            None => return Err(io::Error::from(io::ErrorKind::InvalidInput)),
+            None => return self.deregister(handle),
         };
-        match &self.0 {
-            PollInternal::Poll(internal) => internal.read().unwrap().registry().register(
-                &EventedSource::new(handle),
-                mio::Token(token.0),
-                interests,
-            ),
-            PollInternal::Registry(registry) => unsafe {
-                (*registry.0).register(&EventedSource::new(handle), mio::Token(token.0), interests)
-            },
-        }
+        self.0.poll.read().unwrap().registry().register(
+            &EventedSource::new(handle, &self),
+            mio::Token(token.0),
+            interests,
+        )
     }
 
     pub fn reregister<E: ?Sized>(
@@ -67,47 +54,35 @@ impl Poll {
         validate_args(opts)?;
         let interests = match convert_ready_to_interests(interest) {
             Some(interests) => interests,
-            None => return Err(io::Error::from(io::ErrorKind::InvalidInput)),
+            None => return self.deregister(handle),
         };
-        match &self.0 {
-            PollInternal::Poll(internal) => internal.read().unwrap().registry().reregister(
-                &EventedSource::new(handle),
-                mio::Token(token.0),
-                interests,
-            ),
-            PollInternal::Registry(registry) => unsafe {
-                (*registry.0).reregister(
-                    &EventedSource::new(handle),
-                    mio::Token(token.0),
-                    interests,
-                )
-            },
-        }
+        self.0.poll.read().unwrap().registry().reregister(
+            &EventedSource::new(handle, &self),
+            mio::Token(token.0),
+            interests,
+        )
     }
     pub fn deregister<E: ?Sized>(&self, handle: &E) -> io::Result<()>
     where
         E: crate::Evented,
     {
-        match &self.0 {
-            PollInternal::Poll(internal) => internal
-                .read()
-                .unwrap()
-                .registry()
-                .deregister(&EventedSource::new(handle)),
-            PollInternal::Registry(registry) => unsafe {
-                (*registry.0).deregister(&EventedSource::new(handle))
-            },
-        }
+        self.0
+            .poll
+            .read()
+            .unwrap()
+            .registry()
+            .deregister(&EventedSource::new(handle, &self))
     }
 
     pub fn poll(&self, events: &mut Events, timeout: Option<Duration>) -> io::Result<usize> {
         events.clear();
-        let inner = match &self.0 {
-            PollInternal::Poll(poll) => poll,
-            _ => return Err(io::Error::from(io::ErrorKind::InvalidData)),
-        };
         let mut new_events = mio::Events::with_capacity(events.capacity());
-        let size = inner.write().unwrap().poll(&mut new_events, timeout)?;
+        let size = self
+            .0
+            .poll
+            .write()
+            .unwrap()
+            .poll(&mut new_events, timeout)?;
         for event in &new_events {
             events.inner.push(Event::new(
                 convert_event_to_ready(event),
@@ -123,12 +98,10 @@ impl Poll {
         timeout: Option<Duration>,
     ) -> io::Result<usize> {
         events.clear();
-        let inner = match &self.0 {
-            PollInternal::Poll(poll) => poll,
-            _ => return Err(io::Error::from(io::ErrorKind::InvalidData)),
-        };
         let mut new_events = mio::Events::with_capacity(events.capacity());
-        let size = inner
+        let size = self
+            .0
+            .poll
             .write()
             .unwrap()
             .poll_interruptible(&mut new_events, timeout)?;
@@ -142,12 +115,7 @@ impl Poll {
     }
 
     pub(crate) unsafe fn registry(&self) -> &mio::Registry {
-        match &self.0 {
-            PollInternal::Poll(internal) => {
-                &*(internal.read().unwrap().registry() as *const mio::Registry)
-            }
-            PollInternal::Registry(registry) => &*registry.0,
-        }
+        &*(self.0.poll.read().unwrap().registry() as *const mio::Registry)
     }
 }
 
@@ -201,9 +169,6 @@ pub(crate) fn convert_event_to_ready(event: &mio::event::Event) -> Ready {
 
 impl fmt::Debug for Poll {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self.0 {
-            PollInternal::Poll(_) => write!(fmt, "Poll::Poll"),
-            PollInternal::Registry(_) => write!(fmt, "Poll::Registry"),
-        }
+        fmt.debug_struct("Poll").finish()
     }
 }

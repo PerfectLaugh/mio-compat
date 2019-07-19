@@ -16,27 +16,26 @@ pub trait Evented {
     fn deregister(&self, poll: &Poll) -> io::Result<()>;
 }
 
-pub struct EventedSource<'a, E: Evented + ?Sized>(&'a E);
+pub struct EventedSource<'a, 'b: 'a, E: Evented + ?Sized>(&'a E, &'b Poll);
 
-impl<'a, E: Evented + ?Sized> EventedSource<'a, E> {
-    pub fn new(ev: &'a E) -> EventedSource<'a, E>
+impl<'a, 'b: 'a, E: Evented + ?Sized> EventedSource<'a, 'b, E> {
+    pub fn new(ev: &'a E, poll: &'b Poll) -> EventedSource<'a, 'b, E>
     where
         E: Evented,
     {
-        EventedSource(ev)
+        EventedSource(ev, poll)
     }
 }
 
-impl<'a, E: Evented + ?Sized> mio::event::Source for EventedSource<'a, E> {
+impl<'a, 'b: 'a, E: Evented + ?Sized> mio::event::Source for EventedSource<'a, 'b, E> {
     fn register(
         &self,
-        registry: &mio::Registry,
+        _registry: &mio::Registry,
         token: mio::Token,
         interests: mio::Interests,
     ) -> io::Result<()> {
-        let poll = Poll::from_registry(registry);
         self.0.register(
-            &poll,
+            self.1,
             Token(token.0),
             convert_interests_to_ready(interests),
             PollOpt::edge(),
@@ -44,20 +43,18 @@ impl<'a, E: Evented + ?Sized> mio::event::Source for EventedSource<'a, E> {
     }
     fn reregister(
         &self,
-        registry: &mio::Registry,
+        _registry: &mio::Registry,
         token: mio::Token,
         interests: mio::Interests,
     ) -> io::Result<()> {
-        let poll = Poll::from_registry(registry);
         self.0.reregister(
-            &poll,
+            self.1,
             Token(token.0),
             convert_interests_to_ready(interests),
             PollOpt::edge(),
         )
     }
-    fn deregister(&self, registry: &mio::Registry) -> io::Result<()> {
-        let poll = Poll::from_registry(registry);
-        self.0.deregister(&poll)
+    fn deregister(&self, _registry: &mio::Registry) -> io::Result<()> {
+        self.0.deregister(self.1)
     }
 }
