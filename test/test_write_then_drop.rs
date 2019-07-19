@@ -16,8 +16,6 @@ fn write_then_drop() {
 
     a.register(&poll, Token(1), Ready::readable(), PollOpt::edge())
         .unwrap();
-    s.register(&poll, Token(3), Ready::empty(), PollOpt::edge())
-        .unwrap();
 
     let mut events = Events::with_capacity(1024);
     while events.is_empty() {
@@ -41,7 +39,7 @@ fn write_then_drop() {
     s2.write_all(&[1, 2, 3, 4]).unwrap();
     drop(s2);
 
-    s.reregister(&poll, Token(3), Ready::readable(), PollOpt::edge())
+    s.register(&poll, Token(3), Ready::readable(), PollOpt::edge())
         .unwrap();
     let mut events = Events::with_capacity(1024);
     while events.is_empty() {
@@ -67,8 +65,6 @@ fn write_then_deregister() {
 
     a.register(&poll, Token(1), Ready::readable(), PollOpt::edge())
         .unwrap();
-    s.register(&poll, Token(3), Ready::empty(), PollOpt::edge())
-        .unwrap();
 
     let mut events = Events::with_capacity(1024);
     while events.is_empty() {
@@ -92,7 +88,7 @@ fn write_then_deregister() {
     s2.write_all(&[1, 2, 3, 4]).unwrap();
     s2.deregister(&poll).unwrap();
 
-    s.reregister(&poll, Token(3), Ready::readable(), PollOpt::edge())
+    s.register(&poll, Token(3), Ready::readable(), PollOpt::edge())
         .unwrap();
     let mut events = Events::with_capacity(1024);
     while events.is_empty() {

@@ -267,7 +267,7 @@ fn read_bufs() {
 
     let s = TcpStream::connect(&addr).unwrap();
 
-    poll.register(&s, Token(1), Ready::readable(), PollOpt::level())
+    poll.register(&s, Token(1), Ready::readable(), PollOpt::edge())
         .unwrap();
 
     let b1 = &mut [0; 10][..];
@@ -279,6 +279,11 @@ fn read_bufs() {
 
     let mut so_far = 0;
     loop {
+        if so_far >= N {
+            assert_eq!(so_far, N);
+            break;
+        }
+
         for buf in b.iter_mut() {
             for byte in buf.as_mut_bytes() {
                 *byte = 0;
@@ -287,26 +292,30 @@ fn read_bufs() {
 
         poll.poll(&mut events, None).unwrap();
 
-        match s.read_bufs(&mut b) {
-            Ok(0) => {
-                assert_eq!(so_far, N);
-                break;
-            }
-            Ok(mut n) => {
-                so_far += n;
-                for buf in b.iter() {
-                    let buf = buf.as_bytes();
-                    for byte in buf[..cmp::min(n, buf.len())].iter() {
-                        assert_eq!(*byte, 1);
-                    }
-                    n = n.saturating_sub(buf.len());
-                    if n == 0 {
-                        break;
-                    }
+        loop {
+            match s.read_bufs(&mut b) {
+                Ok(0) => {
+                    break;
                 }
-                assert_eq!(n, 0);
+                Ok(mut n) => {
+                    so_far += n;
+                    for buf in b.iter() {
+                        let buf = buf.as_bytes();
+                        for byte in buf[..cmp::min(n, buf.len())].iter() {
+                            assert_eq!(*byte, 1);
+                        }
+                        n = n.saturating_sub(buf.len());
+                        if n == 0 {
+                            break;
+                        }
+                    }
+                    assert_eq!(n, 0);
+                }
+                Err(e) => {
+                    assert_eq!(e.kind(), io::ErrorKind::WouldBlock);
+                    break;
+                }
             }
-            Err(e) => assert_eq!(e.kind(), io::ErrorKind::WouldBlock),
         }
     }
 
@@ -395,7 +404,7 @@ fn write_bufs() {
     let poll = Poll::new().unwrap();
     let mut events = Events::with_capacity(128);
     let s = TcpStream::connect(&addr).unwrap();
-    poll.register(&s, Token(1), Ready::writable(), PollOpt::level())
+    poll.register(&s, Token(1), Ready::writable(), PollOpt::edge())
         .unwrap();
 
     let b1 = &[1; 10][..];
@@ -409,9 +418,14 @@ fn write_bufs() {
     while so_far < N {
         poll.poll(&mut events, None).unwrap();
 
-        match s.write_bufs(&b) {
-            Ok(n) => so_far += n,
-            Err(e) => assert_eq!(e.kind(), io::ErrorKind::WouldBlock),
+        loop {
+            match s.write_bufs(&b) {
+                Ok(n) => so_far += n,
+                Err(e) => {
+                    assert_eq!(e.kind(), io::ErrorKind::WouldBlock);
+                    break;
+                }
+            }
         }
     }
 
@@ -525,7 +539,7 @@ fn multiple_writes_immediate_success() {
 
     let poll = Poll::new().unwrap();
     let mut s = TcpStream::connect(&addr).unwrap();
-    poll.register(&s, Token(1), Ready::writable(), PollOpt::level())
+    poll.register(&s, Token(1), Ready::writable(), PollOpt::edge())
         .unwrap();
     let mut events = Events::with_capacity(16);
 

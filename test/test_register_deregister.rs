@@ -1,6 +1,5 @@
-use crate::{expect_events, localhost, TryWrite};
+use crate::{localhost, TryWrite};
 use bytes::SliceBuf;
-use mio_compat::event::Event;
 use mio_compat::net::{TcpListener, TcpStream};
 use mio_compat::{Events, Poll, PollOpt, Ready, Token};
 use std::time::Duration;
@@ -36,7 +35,7 @@ impl TestHandler {
                 trace!("handle_read; token=CLIENT");
                 assert!(self.state == 0, "unexpected state {}", self.state);
                 self.state = 1;
-                poll.reregister(&self.client, CLIENT, Ready::writable(), PollOpt::level())
+                poll.reregister(&self.client, CLIENT, Ready::writable(), PollOpt::edge())
                     .unwrap();
             }
             _ => panic!("unexpected token"),
@@ -74,7 +73,7 @@ pub fn test_register_deregister() {
     let client = TcpStream::connect(&addr).unwrap();
 
     // Register client socket only as writable
-    poll.register(&client, CLIENT, Ready::readable(), PollOpt::level())
+    poll.register(&client, CLIENT, Ready::readable(), PollOpt::edge())
         .unwrap();
 
     let mut handler = TestHandler::new(server, client);
@@ -99,6 +98,9 @@ pub fn test_register_deregister() {
     assert_eq!(events.len(), 0);
 }
 
+/*
+use crate::expect_events;
+use mio_compat::event::Event;
 #[test]
 pub fn test_register_empty_interest() {
     let poll = Poll::new().unwrap();
@@ -140,3 +142,4 @@ pub fn test_register_empty_interest() {
     poll.reregister(&sock, Token(0), Ready::empty(), PollOpt::edge())
         .unwrap();
 }
+*/

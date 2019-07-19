@@ -118,13 +118,32 @@ impl UdpSocket {
     }
 
     #[cfg(all(unix, not(target_os = "fuchsia")))]
-    pub fn recv_bufs(&self, _bufs: &mut [&mut IoVec]) -> io::Result<usize> {
-        unreachable!();
+    pub fn recv_bufs(&self, bufs: &mut [&mut IoVec]) -> io::Result<usize> {
+        let size = bufs.iter().map(|buf| buf.len()).sum();
+        let mut buf = vec![0; size];
+        let size = self.recv(&mut buf)?;
+        let mut buf_i = 0;
+        for b in bufs.iter_mut() {
+            for b_i in 0..(b.len()) {
+                if buf_i >= size {
+                    break;
+                }
+                b[b_i] = buf[buf_i];
+                buf_i += 1;
+            }
+            if buf_i >= size {
+                break;
+            }
+        }
+        Ok(buf_i)
     }
 
     #[cfg(all(unix, not(target_os = "fuchsia")))]
-    pub fn send_bufs(&self, _bufs: &[&IoVec]) -> io::Result<usize> {
-        unreachable!();
+    pub fn send_bufs(&self, bufs: &[&IoVec]) -> io::Result<usize> {
+        let size = bufs.iter().map(|buf| buf.len()).sum();
+        let mut buf = Vec::with_capacity(size);
+        bufs.iter().for_each(|b| buf.extend_from_slice(&b));
+        self.send(&buf)
     }
 }
 

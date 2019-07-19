@@ -30,7 +30,7 @@ impl Poll {
         validate_args(opts)?;
         let interests = match convert_ready_to_interests(interest) {
             Some(interests) => interests,
-            None => return self.deregister(handle),
+            None => return Err(io::Error::new(io::ErrorKind::InvalidInput, "invalid Ready")),
         };
         self.poll.read().unwrap().registry().register(
             &EventedSource::new(handle, &self),
@@ -52,7 +52,7 @@ impl Poll {
         validate_args(opts)?;
         let interests = match convert_ready_to_interests(interest) {
             Some(interests) => interests,
-            None => return self.deregister(handle),
+            None => return Err(io::Error::new(io::ErrorKind::InvalidInput, "invalid Ready")),
         };
         self.poll.read().unwrap().registry().reregister(
             &EventedSource::new(handle, &self),
@@ -112,7 +112,10 @@ impl Poll {
 
 fn validate_args(opts: PollOpt) -> io::Result<()> {
     if !opts.is_edge() || opts.is_oneshot() {
-        return Err(io::Error::new(io::ErrorKind::Other, "invalid PollOpt"));
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "invalid PollOpt",
+        ));
     }
 
     Ok(())

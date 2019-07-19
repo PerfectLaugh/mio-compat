@@ -17,37 +17,43 @@ impl Registration {
 #[derive(Clone)]
 pub struct SetReadiness {
     inner: Arc<RegistrationInner>,
-    cur_ready: Arc<AtomicUsize>,
 }
 
 impl SetReadiness {
     fn new(inner: Arc<RegistrationInner>) -> SetReadiness {
-        SetReadiness {
-            inner,
-            cur_ready: Arc::new(AtomicUsize::new(Ready::empty().as_usize())),
-        }
+        SetReadiness { inner }
     }
     pub fn readiness(&self) -> Ready {
-        Ready::from_usize(self.cur_ready.load(Ordering::Acquire))
+        self.inner.readiness()
     }
     pub fn set_readiness(&self, ready: Ready) -> io::Result<()> {
-        if !ready.is_readable() {
-            return Err(io::Error::from(io::ErrorKind::InvalidInput));
-        }
-        self.cur_ready.store(ready.as_usize(), Ordering::Release);
-        self.inner.send_ready(ready)
+        self.inner.set_readiness(ready)
     }
 }
 
 pub struct RegistrationInner {
     waker: RwLock<Option<mio::Waker>>,
+    cur_ready: Arc<AtomicUsize>,
 }
 
 impl RegistrationInner {
     fn new() -> RegistrationInner {
         RegistrationInner {
             waker: RwLock::new(None),
+            cur_ready: Arc::new(AtomicUsize::new(Ready::empty().as_usize())),
         }
+    }
+
+    fn readiness(&self) -> Ready {
+        Ready::from_usize(self.cur_ready.load(Ordering::Acquire))
+    }
+
+    fn set_readiness(&self, ready: Ready) -> io::Result<()> {
+        if !ready.is_readable() {
+            return Err(io::Error::from(io::ErrorKind::InvalidInput));
+        }
+        self.cur_ready.store(ready.as_usize(), Ordering::Release);
+        self.send_ready(ready)
     }
 
     fn send_ready(&self, ready: Ready) -> io::Result<()> {
@@ -81,6 +87,11 @@ impl Evented for Registration {
         let registry = unsafe { poll.registry() };
         self.0
             .set_waker(Some(mio::Waker::new(registry, mio::Token(token.0))?));
+        // There are maybe readable registration before register call. We need to wake this up if readable.
+        if self.0.readiness().is_readable() {
+            // Ignore the result
+            drop(self.0.set_readiness(Ready::readable()));
+        }
         Ok(())
     }
     fn reregister(

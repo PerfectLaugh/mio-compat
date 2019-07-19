@@ -14,13 +14,8 @@ pub fn test_reregister_different_without_poll() {
     let l = TcpListener::bind(&"127.0.0.1:0".parse().unwrap()).unwrap();
 
     // Register the listener with `Poll`
-    poll.register(
-        &l,
-        Token(0),
-        Ready::readable(),
-        PollOpt::edge() | PollOpt::oneshot(),
-    )
-    .unwrap();
+    poll.register(&l, Token(0), Ready::readable(), PollOpt::edge())
+        .unwrap();
 
     let s1 = TcpStream::connect(&l.local_addr().unwrap()).unwrap();
     poll.register(&s1, Token(2), Ready::readable(), PollOpt::edge())
@@ -28,13 +23,8 @@ pub fn test_reregister_different_without_poll() {
 
     sleep_ms(MS);
 
-    poll.reregister(
-        &l,
-        Token(0),
-        Ready::writable(),
-        PollOpt::edge() | PollOpt::oneshot(),
-    )
-    .unwrap();
+    poll.reregister(&l, Token(0), Ready::writable(), PollOpt::edge())
+        .unwrap();
 
     poll.poll(&mut events, Some(Duration::from_millis(MS)))
         .unwrap();
