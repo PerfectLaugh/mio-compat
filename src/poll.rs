@@ -6,17 +6,15 @@ use std::time::Duration;
 use crate::evented::EventedSource;
 use crate::{Event, Events, PollOpt, Ready, Token};
 
-struct PollInternal {
+pub struct Poll {
     poll: RwLock<mio::Poll>,
 }
 
-pub struct Poll(PollInternal);
-
 impl Poll {
     pub fn new() -> io::Result<Poll> {
-        Ok(Poll(PollInternal {
+        Ok(Poll {
             poll: RwLock::new(mio::Poll::new()?),
-        }))
+        })
     }
 
     pub fn register<E: ?Sized>(
@@ -34,7 +32,7 @@ impl Poll {
             Some(interests) => interests,
             None => return self.deregister(handle),
         };
-        self.0.poll.read().unwrap().registry().register(
+        self.poll.read().unwrap().registry().register(
             &EventedSource::new(handle, &self),
             mio::Token(token.0),
             interests,
@@ -56,7 +54,7 @@ impl Poll {
             Some(interests) => interests,
             None => return self.deregister(handle),
         };
-        self.0.poll.read().unwrap().registry().reregister(
+        self.poll.read().unwrap().registry().reregister(
             &EventedSource::new(handle, &self),
             mio::Token(token.0),
             interests,
@@ -66,8 +64,7 @@ impl Poll {
     where
         E: crate::Evented,
     {
-        self.0
-            .poll
+        self.poll
             .read()
             .unwrap()
             .registry()
@@ -77,12 +74,7 @@ impl Poll {
     pub fn poll(&self, events: &mut Events, timeout: Option<Duration>) -> io::Result<usize> {
         events.clear();
         let mut new_events = mio::Events::with_capacity(events.capacity());
-        let size = self
-            .0
-            .poll
-            .write()
-            .unwrap()
-            .poll(&mut new_events, timeout)?;
+        let size = self.poll.write().unwrap().poll(&mut new_events, timeout)?;
         for event in &new_events {
             events.inner.push(Event::new(
                 convert_event_to_ready(event),
@@ -100,7 +92,6 @@ impl Poll {
         events.clear();
         let mut new_events = mio::Events::with_capacity(events.capacity());
         let size = self
-            .0
             .poll
             .write()
             .unwrap()
@@ -115,12 +106,12 @@ impl Poll {
     }
 
     pub(crate) unsafe fn registry(&self) -> &mio::Registry {
-        &*(self.0.poll.read().unwrap().registry() as *const mio::Registry)
+        &*(self.poll.read().unwrap().registry() as *const mio::Registry)
     }
 }
 
 fn validate_args(opts: PollOpt) -> io::Result<()> {
-    if !opts.is_edge() {
+    if !opts.is_edge() || opts.is_oneshot() {
         return Err(io::Error::new(io::ErrorKind::Other, "invalid PollOpt"));
     }
 
