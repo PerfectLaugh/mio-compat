@@ -1,5 +1,7 @@
 use std::fmt;
 use std::io;
+#[cfg(unix)]
+use std::os::unix::io::{AsRawFd, RawFd};
 use std::sync::RwLock;
 use std::time::Duration;
 
@@ -164,5 +166,12 @@ pub(crate) fn convert_event_to_ready(event: &mio::event::Event) -> Ready {
 impl fmt::Debug for Poll {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt.debug_struct("Poll").finish()
+    }
+}
+
+#[cfg(unix)]
+impl AsRawFd for Poll {
+    fn as_raw_fd(&self) -> RawFd {
+        self.poll..as_raw_fd()
     }
 }
