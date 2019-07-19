@@ -105,12 +105,12 @@ impl UdpSocket {
         self.0.leave_multicast_v6(multiaddr, interface)
     }
 
-    pub fn set_only_v6(&self, only_v6: bool) -> io::Result<()> {
-        self.0.set_only_v6(only_v6)
+    pub fn set_only_v6(&self, _only_v6: bool) -> io::Result<()> {
+        unreachable!();
     }
 
     pub fn only_v6(&self) -> io::Result<bool> {
-        self.0.only_v6()
+        unreachable!();
     }
 
     pub fn take_error(&self) -> io::Result<Option<io::Error>> {
