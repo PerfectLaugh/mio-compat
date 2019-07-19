@@ -49,9 +49,6 @@ impl RegistrationInner {
     }
 
     fn set_readiness(&self, ready: Ready) -> io::Result<()> {
-        if !ready.is_readable() {
-            return Err(io::Error::from(io::ErrorKind::InvalidInput));
-        }
         self.cur_ready.store(ready.as_usize(), Ordering::Release);
         self.send_ready(ready)
     }
