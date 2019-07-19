@@ -122,24 +122,24 @@ impl TcpStream {
         self.0.peek(buf)
     }
 
-    pub fn read_bufs(&mut self, bufs: &mut [&mut IoVec]) -> io::Result<usize> {
+    pub fn read_bufs(&self, bufs: &mut [&mut IoVec]) -> io::Result<usize> {
         let mut ioslices = Vec::with_capacity(bufs.len());
         bufs.iter_mut().for_each(|buf| {
             ioslices.push(IoSliceMut::new(unsafe {
                 std::slice::from_raw_parts_mut(buf.as_mut_ptr(), buf.len())
             }))
         });
-        self.0.read_vectored(&mut ioslices)
+        unsafe { (*(&self.0 as *const _ as *mut mio::net::TcpStream)).read_vectored(&mut ioslices) }
     }
 
-    pub fn write_bufs(&mut self, bufs: &[&IoVec]) -> io::Result<usize> {
+    pub fn write_bufs(&self, bufs: &[&IoVec]) -> io::Result<usize> {
         let mut ioslices = Vec::with_capacity(bufs.len());
         bufs.iter().for_each(|buf| {
             ioslices.push(IoSlice::new(unsafe {
                 std::slice::from_raw_parts(buf.as_ptr(), buf.len())
             }))
         });
-        self.0.write_vectored(&ioslices)
+        unsafe { (*(&self.0 as *const _ as *mut mio::net::TcpStream)).write_vectored(&ioslices) }
     }
 }
 

@@ -265,7 +265,7 @@ fn read_bufs() {
     let poll = Poll::new().unwrap();
     let mut events = Events::with_capacity(128);
 
-    let mut s = TcpStream::connect(&addr).unwrap();
+    let s = TcpStream::connect(&addr).unwrap();
 
     poll.register(&s, Token(1), Ready::readable(), PollOpt::level())
         .unwrap();
@@ -394,7 +394,7 @@ fn write_bufs() {
 
     let poll = Poll::new().unwrap();
     let mut events = Events::with_capacity(128);
-    let mut s = TcpStream::connect(&addr).unwrap();
+    let s = TcpStream::connect(&addr).unwrap();
     poll.register(&s, Token(1), Ready::writable(), PollOpt::level())
         .unwrap();
 
