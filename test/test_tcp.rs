@@ -422,6 +422,11 @@ fn write_bufs() {
             match s.write_bufs(&b) {
                 Ok(n) => so_far += n,
                 Err(e) => {
+                    if e.kind() == io::ErrorKind::ConnectionAborted
+                        || e.kind() == io::ErrorKind::ConnectionReset
+                    {
+                        break;
+                    }
                     assert_eq!(e.kind(), io::ErrorKind::WouldBlock);
                     break;
                 }
