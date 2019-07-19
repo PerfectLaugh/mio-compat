@@ -172,6 +172,6 @@ impl fmt::Debug for Poll {
 #[cfg(unix)]
 impl AsRawFd for Poll {
     fn as_raw_fd(&self) -> RawFd {
-        self.poll..as_raw_fd()
+        self.poll.as_raw_fd()
     }
 }
